@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>建材在庫管理</title>
+<link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoi5bu65p2Q5Zyo5bqr566h55CGIiwic2hvcnRfbmFtZSI6IuWcqOW6q+euoeeQhiIsInN0YXJ0X3VybCI6Ii4iLCJkaXNwbGF5Ijoic3RhbmRhbG9uZSIsImJhY2tncm91bmRfY29sb3IiOiIjMmQ0YTNlIiwidGhlbWVfY29sb3IiOiIjMmQ0YTNlIn0=">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#2d4a3e">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --c-forest: #2d4a3e; --c-sage: #3d6b56; --c-leaf: #5a7d6a;
+  --c-mist: #eef3f0; --c-cloud: #f8faf9; --c-border: #c5cec8;
+  --c-text: #2d4a3e; --c-sub: #556b60; --c-faint: #8a9f92;
+  --radius: 12px; --shadow: 0 2px 12px rgba(45,74,62,.08);
+}
+html { font-size: 15px; }
+body {
+  font-family: 'Hiragino Sans', 'Noto Sans JP', 'Yu Gothic', sans-serif;
+  background: var(--c-mist); color: var(--c-text); min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+button { font-family: inherit; cursor: pointer; border: none; }
+input, select, textarea { font-family: inherit; }
+
+/* ── SETUP SCREEN ── */
+#setup-screen {
+  padding: 24px 16px 60px; max-width: 520px; margin: 0 auto;
+}
+#setup-screen h1 { font-size: 22px; font-weight: 900; margin-bottom: 8px; }
+#setup-screen p { font-size: 13px; color: var(--c-sub); line-height: 1.7; margin-bottom: 16px; }
+#setup-screen .step {
+  background: #fff; border-radius: var(--radius); padding: 16px;
+  margin-bottom: 14px; border: 1px solid var(--c-border); box-shadow: var(--shadow);
+}
+#setup-screen .step-num {
+  display: inline-block; background: var(--c-sage); color: #fff;
+  width: 26px; height: 26px; border-radius: 50%; text-align: center;
+  line-height: 26px; font-size: 13px; font-weight: 800; margin-right: 8px;
+}
+#setup-screen .step h3 { display: inline; font-size: 15px; font-weight: 800; }
+#setup-screen .step p { margin-top: 8px; font-size: 13px; }
+#setup-screen code {
+  display: block; background: #1e1e1e; color: #d4d4d4; padding: 12px;
+  border-radius: 8px; font-size: 12px; line-height: 1.6; overflow-x: auto;
+  margin-top: 8px; white-space: pre-wrap; word-break: break-all;
+}
+#api-url-input {
+  width: 100%; padding: 12px; border: 2px solid var(--c-border); border-radius: 10px;
+  font-size: 15px; margin-top: 8px; outline: none; transition: border .2s;
+}
+#api-url-input:focus { border-color: var(--c-sage); }
+#connect-btn {
+  width: 100%; padding: 14px; background: var(--c-sage); color: #fff;
+  border-radius: 10px; font-size: 16px; font-weight: 800; margin-top: 16px;
+  transition: opacity .2s;
+}
+#connect-btn:disabled { opacity: .5; }
+#setup-error { color: #c62828; font-size: 13px; margin-top: 8px; display: none; }
+#setup-success { color: var(--c-sage); font-size: 13px; margin-top: 8px; display: none; }
+
+/* ── HEADER ── */
+.app-header {
+  background: linear-gradient(135deg, var(--c-forest), var(--c-sage));
+  padding: 16px 16px 12px; color: #fff; position: sticky; top: 0; z-index: 100;
+}
+.app-header h1 { font-size: 19px; font-weight: 900; letter-spacing: .5px; }
+.app-header .meta { font-size: 11px; opacity: .7; margin-top: 2px; }
+.search-wrap { margin-top: 10px; position: relative; }
+.search-wrap input {
+  width: 100%; padding: 10px 12px 10px 36px; border: none; border-radius: 10px;
+  font-size: 14px; background: rgba(255,255,255,.92); outline: none;
+}
+.search-wrap .icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); font-size: 15px; opacity: .45; }
+.filter-toggle {
+  margin-top: 8px; background: rgba(255,255,255,.15); color: #fff;
+  border: 1px solid rgba(255,255,255,.3); border-radius: 8px;
+  padding: 5px 14px; font-size: 12px; font-weight: 600;
+}
+.filters-bar { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px; }
+.filters-bar select {
+  padding: 7px 10px; border-radius: 8px; border: none; font-size: 13px;
+  background: rgba(255,255,255,.9);
+}
+.header-actions { display: flex; justify-content: space-between; align-items: center; }
+.btn-new {
+  background: #fff; color: var(--c-forest); border-radius: 10px;
+  padding: 9px 15px; font-size: 13px; font-weight: 800;
+  box-shadow: 0 2px 8px rgba(0,0,0,.15);
+}
+.btn-settings {
+  background: rgba(255,255,255,.15); color: #fff; border-radius: 8px;
+  padding: 7px 10px; font-size: 14px; border: 1px solid rgba(255,255,255,.25);
+}
+
+/* ── CARD LIST ── */
+.card-list { padding: 12px 12px 100px; max-width: 600px; margin: 0 auto; }
+.card-list .empty { text-align: center; padding: 60px 20px; color: var(--c-faint); }
+.card-list .empty .icon { font-size: 48px; margin-bottom: 12px; }
+
+.card {
+  background: #fff; border-radius: var(--radius); box-shadow: var(--shadow);
+  overflow: hidden; border: 1px solid #dce5df; margin-bottom: 12px;
+  animation: fadeUp .3s ease both;
+}
+@keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+.card img { width: 100%; height: 140px; object-fit: cover; cursor: zoom-in; border-bottom: 1px solid #dce5df; }
+.card-body { padding: 12px 14px; }
+.card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.card-top h3 { font-size: 15px; font-weight: 800; line-height: 1.3; }
+.badge {
+  display: inline-block; padding: 2px 8px; border-radius: 4px;
+  font-size: 11px; font-weight: 600; white-space: nowrap; letter-spacing: .3px;
+}
+.badges { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+.card-details {
+  margin-top: 10px; display: grid; grid-template-columns: 1fr 1fr;
+  gap: 4px 12px; font-size: 13px; color: var(--c-sub);
+}
+.card-details b { color: var(--c-text); }
+.card-note {
+  margin-top: 8px; font-size: 12px; color: var(--c-faint); background: #f4f7f5;
+  padding: 6px 10px; border-radius: 6px; line-height: 1.5;
+}
+.card-actions { display: flex; gap: 8px; margin-top: 12px; }
+.card-actions button { flex: 1; padding: 8px 0; border-radius: 8px; font-size: 13px; font-weight: 700; }
+.btn-edit { background: #e8f0eb; color: var(--c-sage); }
+.btn-del { background: #fce8e6; color: #c62828; }
+
+/* ── FORM ── */
+.form-screen { padding: 20px 16px 100px; max-width: 520px; margin: 0 auto; }
+.form-screen h2 { font-size: 20px; font-weight: 800; margin-bottom: 20px; }
+.form-group { margin-bottom: 14px; }
+.form-group label { display: block; font-size: 12px; font-weight: 700; color: var(--c-leaf); margin-bottom: 4px; letter-spacing: .5px; }
+.form-group input, .form-group select, .form-group textarea {
+  width: 100%; padding: 10px 12px; border: 1.5px solid var(--c-border);
+  border-radius: 8px; font-size: 15px; background: var(--c-cloud); outline: none;
+  transition: border .2s;
+}
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--c-sage); }
+.form-group textarea { resize: vertical; }
+.photo-area { text-align: center; margin-bottom: 18px; }
+.photo-area img { width: 100%; max-height: 200px; object-fit: cover; border-radius: 10px; border: 2px solid var(--c-border); }
+.photo-btns { display: flex; gap: 10px; justify-content: center; }
+.photo-btns button { padding: 12px 20px; border-radius: 10px; font-size: 14px; font-weight: 700; }
+.btn-camera { background: var(--c-leaf); color: #fff; }
+.btn-gallery { background: #fff; color: var(--c-leaf); border: 2px solid var(--c-leaf) !important; }
+.photo-rm {
+  position: absolute; top: 6px; right: 6px; background: rgba(0,0,0,.55);
+  color: #fff; border-radius: 50%; width: 28px; height: 28px; font-size: 16px; line-height: 28px;
+}
+.form-actions { display: flex; gap: 10px; margin-top: 20px; }
+.form-actions button { flex: 1; padding: 14px; border-radius: 10px; font-size: 16px; font-weight: 800; }
+.btn-save { background: var(--c-sage); color: #fff; }
+.btn-cancel { background: #e8ede9; color: var(--c-leaf); }
+
+/* ── FAB ── */
+.fab {
+  position: fixed; bottom: 20px; right: 20px; width: 58px; height: 58px;
+  border-radius: 50%; background: linear-gradient(135deg, var(--c-forest), var(--c-sage));
+  color: #fff; font-size: 28px; box-shadow: 0 4px 16px rgba(45,74,62,.35);
+  display: flex; align-items: center; justify-content: center; z-index: 200;
+}
+
+/* ── PHOTO MODAL ── */
+.photo-modal {
+  position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,.85);
+  display: flex; align-items: center; justify-content: center; cursor: zoom-out;
+}
+.photo-modal img { max-width: 92vw; max-height: 88vh; border-radius: 8px; object-fit: contain; }
+
+/* ── LOADING ── */
+.loading-overlay {
+  position: fixed; inset: 0; background: rgba(255,255,255,.7); z-index: 300;
+  display: flex; align-items: center; justify-content: center;
+}
+.spinner { width: 36px; height: 36px; border: 3px solid var(--c-border); border-top-color: var(--c-sage); border-radius: 50%; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.count-bar { text-align: center; padding: 16px 0 4px; font-size: 12px; color: var(--c-faint); }
+
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<!-- =================== SETUP SCREEN =================== -->
+<div id="setup-screen">
+  <h1>🏗️ 建材在庫管理アプリ</h1>
+  <p>社内で共有できる在庫管理アプリです。<br>初回のみ、Googleスプレッドシートとの接続設定が必要です。</p>
+
+  <div class="step">
+    <span class="step-num">1</span><h3>スプレッドシートを作成</h3>
+    <p><a href="https://sheets.new" target="_blank" style="color:var(--c-sage);font-weight:700">ここをタップ</a> して新しいGoogleスプレッドシートを開き、<b>1行目</b>に以下をコピペしてください：</p>
+    <code>id	name	category	maker	model	price	quantity	unit	condition	location	note	photo	createdAt	updatedAt</code>
+    <p style="font-size:12px;color:var(--c-faint)">※ タブ区切りです。貼り付けると各列に分かれます</p>
+  </div>
+
+  <div class="step">
+    <span class="step-num">2</span><h3>スクリプトを設定</h3>
+    <p>スプレッドシートの上部メニューから<br>
+    <b>「拡張機能」→「Apps Script」</b>を開き、<br>
+    元のコードを全て消して、以下を貼り付けてください：</p>
+    <code id="gas-code"></code>
+    <button onclick="copyGAS()" style="margin-top:8px;padding:8px 16px;background:var(--c-sage);color:#fff;border-radius:8px;font-size:13px;font-weight:700">📋 コードをコピー</button>
+  </div>
+
+  <div class="step">
+    <span class="step-num">3</span><h3>ウェブアプリとしてデプロイ</h3>
+    <p>Apps Scriptの画面で：</p>
+    <p>① 右上の <b>「デプロイ」→「新しいデプロイ」</b> をタップ<br>
+    ② 種類を <b>「ウェブアプリ」</b> に設定<br>
+    ③ 「アクセスできるユーザー」を <b>「全員」</b> に変更<br>
+    ④ <b>「デプロイ」</b> をタップ<br>
+    ⑤ 表示された <b>URL</b> をコピー</p>
+  </div>
+
+  <div class="step">
+    <span class="step-num">4</span><h3>URLを貼り付けて接続</h3>
+    <p>上でコピーしたURLを貼り付けてください：</p>
+    <input id="api-url-input" type="url" placeholder="https://script.google.com/macros/s/...">
+    <div id="setup-error"></div>
+    <div id="setup-success"></div>
+  </div>
+
+  <button id="connect-btn" onclick="connectAPI()">接続して使い始める</button>
+  <p style="margin-top:16px;font-size:12px;color:var(--c-faint);text-align:center">
+    ※ 設定後、このページのURLをメンバーに共有するだけでOK<br>
+    ※ 全員が同じスプレッドシートのデータを共有します
+  </p>
+</div>
+
+<!-- =================== MAIN APP =================== -->
+<div id="app-screen" class="hidden">
+
+  <!-- Header -->
+  <div class="app-header">
+    <div class="header-actions">
+      <div>
+        <h1>🏗️ 建材在庫管理</h1>
+        <div class="meta"><span id="item-count">0</span> 件の在庫 ・ 共有モード</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn-new" onclick="showForm()">＋ 新規登録</button>
+        <button class="btn-settings" onclick="showSetup()" title="設定">⚙️</button>
+      </div>
+    </div>
+    <div class="search-wrap">
+      <span class="icon">🔍</span>
+      <input id="search-input" type="search" placeholder="品名・メーカー・型番・場所で検索..." oninput="renderList()">
+    </div>
+    <button class="filter-toggle" onclick="toggleFilters()" id="filter-toggle-btn">▼ フィルタ・並べ替え</button>
+    <div class="filters-bar hidden" id="filters-bar">
+      <select id="filter-cat" onchange="renderList()"><option value="">カテゴリ: すべて</option></select>
+      <select id="filter-cond" onchange="renderList()"><option value="">状態: すべて</option></select>
+      <select id="sort-by" onchange="renderList()">
+        <option value="newest">更新順（新しい）</option>
+        <option value="name">品名順</option>
+        <option value="price_asc">単価（安い順）</option>
+        <option value="price_desc">単価（高い順）</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- List -->
+  <div class="card-list" id="card-list"></div>
+
+  <!-- FAB -->
+  <button class="fab" onclick="showForm()">＋</button>
+</div>
+
+<!-- =================== FORM SCREEN =================== -->
+<div id="form-screen" class="hidden">
+  <div class="form-screen">
+    <h2 id="form-title">新規登録</h2>
+    <div class="photo-area" id="photo-area">
+      <div class="photo-btns" id="photo-btns">
+        <button class="btn-camera" onclick="takePhoto('environment')">📷 カメラ</button>
+        <button class="btn-gallery" onclick="takePhoto()">🖼 写真を選択</button>
+      </div>
+      <div id="photo-preview" class="hidden" style="position:relative">
+        <img id="photo-img" src="" alt="">
+        <button class="photo-rm" onclick="removePhoto()">✕</button>
+      </div>
+      <input type="file" id="photo-file" accept="image/*" onchange="handlePhoto(this)" style="display:none">
+    </div>
+    <div class="form-group"><label>品名 *</label><input id="f-name" placeholder="例：窯業系サイディング 16mm"></div>
+    <div class="form-group"><label>カテゴリ</label><select id="f-category"></select></div>
+    <div class="form-group"><label>メーカー</label><input id="f-maker" placeholder="例：ニチハ / KMEW"></div>
+    <div class="form-group"><label>型番・品番</label><input id="f-model" placeholder="例：モエンエクセラード16"></div>
+    <div class="form-group"><label>単価（税抜）</label><input id="f-price" type="number" inputmode="decimal" placeholder="例：3500"></div>
+    <div style="display:flex;gap:10px">
+      <div class="form-group" style="flex:1"><label>数量</label><input id="f-quantity" type="number" inputmode="decimal" placeholder="例：120"></div>
+      <div class="form-group" style="flex:1"><label>単位</label><select id="f-unit"></select></div>
+    </div>
+    <div class="form-group"><label>状態</label><select id="f-condition"></select></div>
+    <div class="form-group"><label>保管場所</label><input id="f-location" placeholder="例：第2倉庫 棚A-3"></div>
+    <div class="form-group"><label>備考</label><textarea id="f-note" rows="3" placeholder="色番号、ロット、注意点など"></textarea></div>
+    <div class="form-actions">
+      <button class="btn-save" onclick="saveItem()">登録する</button>
+      <button class="btn-cancel" onclick="cancelForm()">キャンセル</button>
+    </div>
+  </div>
+</div>
+
+<!-- Photo modal -->
+<div id="photo-modal" class="photo-modal hidden" onclick="this.classList.add('hidden')">
+  <img id="modal-img" src="" alt="">
+</div>
+
+<!-- Loading overlay -->
+<div id="loading" class="loading-overlay hidden"><div class="spinner"></div></div>
+
+<script>
+// ═══════════════════════ CONFIG ═══════════════════════
+const CATEGORIES = ["外壁材","屋根材","断熱材","内装材・壁紙","床材","防水材","金物・部品","その他"];
+const CONDITIONS = ["新品","良好","使用可","要確認","不良"];
+const UNITS = ["枚","本","巻","箱","缶","袋","㎡","m","個","セット"];
+const COND_COLORS = {"新品":"#2e7d32","良好":"#558b2f","使用可":"#f9a825","要確認":"#e65100","不良":"#c62828"};
+
+let API_URL = localStorage.getItem("inventory_api_url") || "";
+let items = [];
+let editingId = null;
+let currentPhoto = "";
+
+// ═══════════════════════ GAS CODE ═══════════════════════
+const GAS_CODE = `// ── 建材在庫管理 API ──
+// このコードをそのまま貼り付けてデプロイしてください
+
+function doGet(e) {
+  return handleRequest(e);
+}
+
+function doPost(e) {
+  return handleRequest(e);
+}
+
+function handleRequest(e) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  
+  try {
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    var action = (e && e.parameter && e.parameter.action) ? e.parameter.action : "list";
+    var result;
+    
+    if (action === "list") {
+      result = listItems(sheet);
+    } else if (action === "add") {
+      var data = JSON.parse(e.postData.contents);
+      // 写真データが50000文字を超える場合はカット（セル上限対策）
+      if (data.photo && data.photo.length > 50000) {
+        data.photo = data.photo.substring(0, 50000);
+      }
+      result = addItem(sheet, data);
+    } else if (action === "update") {
+      var data = JSON.parse(e.postData.contents);
+      if (data.photo && data.photo.length > 50000) {
+        data.photo = data.photo.substring(0, 50000);
+      }
+      result = updateItem(sheet, data);
+    } else if (action === "delete") {
+      var id = e.parameter.id;
+      result = deleteItem(sheet, id);
+    } else {
+      result = { error: "Unknown action" };
+    }
+    
+    lock.releaseLock();
+    return ContentService.createTextOutput(JSON.stringify(result))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    lock.releaseLock();
+    return ContentService.createTextOutput(JSON.stringify({ error: err.message }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function listItems(sheet) {
+  var lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return [];
+  var data = sheet.getRange(1, 1, lastRow, sheet.getLastColumn()).getValues();
+  var headers = data[0];
+  var items = [];
+  for (var i = 1; i < data.length; i++) {
+    var obj = {};
+    for (var j = 0; j < headers.length; j++) {
+      obj[headers[j]] = data[i][j];
+    }
+    if (obj.id) items.push(obj);
+  }
+  return items;
+}
+
+function addItem(sheet, data) {
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  var row = headers.map(function(h) { return data[h] !== undefined ? data[h] : ""; });
+  sheet.appendRow(row);
+  SpreadsheetApp.flush();
+  return { success: true, id: data.id };
+}
+
+function updateItem(sheet, data) {
+  var lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return { error: "Not found" };
+  var dataRange = sheet.getRange(1, 1, lastRow, sheet.getLastColumn()).getValues();
+  var headers = dataRange[0];
+  var idCol = headers.indexOf("id");
+  for (var i = 1; i < dataRange.length; i++) {
+    if (String(dataRange[i][idCol]) === String(data.id)) {
+      var row = headers.map(function(h) { return data[h] !== undefined ? data[h] : dataRange[i][headers.indexOf(h)]; });
+      sheet.getRange(i + 1, 1, 1, row.length).setValues([row]);
+      SpreadsheetApp.flush();
+      return { success: true };
+    }
+  }
+  return { error: "Not found" };
+}
+
+function deleteItem(sheet, id) {
+  var lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return { error: "Not found" };
+  var dataRange = sheet.getRange(1, 1, lastRow, sheet.getLastColumn()).getValues();
+  var headers = dataRange[0];
+  var idCol = headers.indexOf("id");
+  for (var i = 1; i < dataRange.length; i++) {
+    if (String(dataRange[i][idCol]) === String(id)) {
+      sheet.deleteRow(i + 1);
+      SpreadsheetApp.flush();
+      return { success: true };
+    }
+  }
+  return { error: "Not found" };
+}`;
+
+document.getElementById("gas-code").textContent = GAS_CODE;
+
+function copyGAS() {
+  navigator.clipboard.writeText(GAS_CODE).then(() => {
+    const btn = event.target;
+    btn.textContent = "✅ コピーしました！";
+    setTimeout(() => btn.textContent = "📋 コードをコピー", 2000);
+  });
+}
+
+// ═══════════════════════ SETUP ═══════════════════════
+function initDropdowns() {
+  const catSel = document.getElementById("f-category");
+  const condSel = document.getElementById("f-condition");
+  const unitSel = document.getElementById("f-unit");
+  const filterCat = document.getElementById("filter-cat");
+  const filterCond = document.getElementById("filter-cond");
+
+  CATEGORIES.forEach(c => {
+    catSel.innerHTML += `<option value="${c}">${c}</option>`;
+    filterCat.innerHTML += `<option value="${c}">${c}</option>`;
+  });
+  CONDITIONS.forEach(c => {
+    condSel.innerHTML += `<option value="${c}">${c}</option>`;
+    filterCond.innerHTML += `<option value="${c}">${c}</option>`;
+  });
+  UNITS.forEach(u => unitSel.innerHTML += `<option value="${u}">${u}</option>`);
+}
+
+async function connectAPI() {
+  const url = document.getElementById("api-url-input").value.trim();
+  const errEl = document.getElementById("setup-error");
+  const okEl = document.getElementById("setup-success");
+  const btn = document.getElementById("connect-btn");
+  errEl.style.display = "none"; okEl.style.display = "none";
+
+  if (!url || !url.startsWith("https://script.google.com/")) {
+    errEl.textContent = "有効なGoogle Apps ScriptのURLを入力してください"; errEl.style.display = "block"; return;
+  }
+
+  btn.disabled = true; btn.textContent = "接続中...";
+  try {
+    const res = await fetch(url + "?action=list", { redirect: "follow" });
+    let data;
+    try { data = await res.json(); } catch { throw new Error("レスポンスの解析に失敗しました。Apps Scriptのデプロイ設定を確認してください"); }
+    if (data.error) throw new Error(data.error);
+
+    API_URL = url;
+    localStorage.setItem("inventory_api_url", url);
+    items = Array.isArray(data) ? data : [];
+    okEl.textContent = "✅ 接続成功！アプリを起動します..."; okEl.style.display = "block";
+    setTimeout(() => {
+      document.getElementById("setup-screen").classList.add("hidden");
+      document.getElementById("app-screen").classList.remove("hidden");
+      renderList();
+    }, 800);
+  } catch (err) {
+    errEl.textContent = "接続失敗: " + err.message + "\nURLとデプロイ設定を確認してください";
+    errEl.style.display = "block";
+  }
+  btn.disabled = false; btn.textContent = "接続して使い始める";
+}
+
+function showSetup() {
+  document.getElementById("app-screen").classList.add("hidden");
+  document.getElementById("form-screen").classList.add("hidden");
+  document.getElementById("setup-screen").classList.remove("hidden");
+  document.getElementById("api-url-input").value = API_URL;
+}
+
+// ═══════════════════════ API CALLS ═══════════════════════
+function showLoading(v) { document.getElementById("loading").classList.toggle("hidden", !v); }
+
+// GAS returns 302 redirect on POST. We must use `redirect: "follow"` and `mode: "no-cors"` fallback.
+// Safest approach: always use GET via URL params for small data, POST with redirect:follow for large data.
+
+async function gasFetch(url, options = {}) {
+  // Google Apps Script redirects POST to a different URL. 
+  // We need to follow redirects properly.
+  const res = await fetch(url, { 
+    ...options, 
+    redirect: "follow",
+  });
+  // GAS may return opaque response after redirect; try to parse
+  try {
+    return await res.json();
+  } catch {
+    // If JSON parse fails, the write likely succeeded but response was opaque
+    return { success: true, opaque: true };
+  }
+}
+
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function fetchItems() {
+  showLoading(true);
+  try {
+    const data = await gasFetch(API_URL + "?action=list");
+    items = Array.isArray(data) ? data : [];
+  } catch (e) { console.error("fetchItems error:", e); }
+  showLoading(false);
+  renderList();
+}
+
+async function apiAdd(item) {
+  showLoading(true);
+  try {
+    // Use POST with JSON body
+    await gasFetch(API_URL + "?action=add", {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
+      body: JSON.stringify(item)
+    });
+    // Wait for GAS to finish writing to sheet
+    await delay(1000);
+  } catch (e) { 
+    console.error("apiAdd error:", e); 
+    alert("保存に失敗しました: " + e.message); 
+  }
+  showLoading(false);
+}
+
+async function apiUpdate(item) {
+  showLoading(true);
+  try {
+    await gasFetch(API_URL + "?action=update", {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
+      body: JSON.stringify(item)
+    });
+    await delay(1000);
+  } catch (e) { 
+    console.error("apiUpdate error:", e); 
+    alert("更新に失敗しました: " + e.message); 
+  }
+  showLoading(false);
+}
+
+async function apiDelete(id) {
+  showLoading(true);
+  try {
+    await gasFetch(API_URL + "?action=delete&id=" + encodeURIComponent(id));
+    await delay(1000);
+  } catch (e) { 
+    console.error("apiDelete error:", e); 
+    alert("削除に失敗しました"); 
+  }
+  showLoading(false);
+}
+
+// ═══════════════════════ PHOTO ═══════════════════════
+function takePhoto(capture) {
+  const input = document.getElementById("photo-file");
+  if (capture) { input.setAttribute("capture", capture); } else { input.removeAttribute("capture"); }
+  input.click();
+}
+
+function handlePhoto(input) {
+  const file = input.files?.[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      const maxW = 600;
+      const ratio = Math.min(maxW / img.width, maxW / img.height, 1);
+      canvas.width = img.width * ratio; canvas.height = img.height * ratio;
+      canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+      currentPhoto = canvas.toDataURL("image/jpeg", 0.6);
+      document.getElementById("photo-img").src = currentPhoto;
+      document.getElementById("photo-preview").classList.remove("hidden");
+      document.getElementById("photo-btns").classList.add("hidden");
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+  input.value = "";
+}
+
+function removePhoto() {
+  currentPhoto = "";
+  document.getElementById("photo-preview").classList.add("hidden");
+  document.getElementById("photo-btns").classList.remove("hidden");
+}
+
+// ═══════════════════════ FORM ═══════════════════════
+function showForm(item) {
+  editingId = item ? item.id : null;
+  document.getElementById("form-title").textContent = item ? "在庫を編集" : "新規登録";
+  document.querySelector(".btn-save").textContent = item ? "更新する" : "登録する";
+
+  document.getElementById("f-name").value = item?.name || "";
+  document.getElementById("f-category").value = item?.category || "外壁材";
+  document.getElementById("f-maker").value = item?.maker || "";
+  document.getElementById("f-model").value = item?.model || "";
+  document.getElementById("f-price").value = item?.price || "";
+  document.getElementById("f-quantity").value = item?.quantity || "";
+  document.getElementById("f-unit").value = item?.unit || "枚";
+  document.getElementById("f-condition").value = item?.condition || "新品";
+  document.getElementById("f-location").value = item?.location || "";
+  document.getElementById("f-note").value = item?.note || "";
+
+  if (item?.photo) {
+    currentPhoto = item.photo;
+    document.getElementById("photo-img").src = currentPhoto;
+    document.getElementById("photo-preview").classList.remove("hidden");
+    document.getElementById("photo-btns").classList.add("hidden");
+  } else {
+    removePhoto();
+  }
+
+  document.getElementById("app-screen").classList.add("hidden");
+  document.getElementById("form-screen").classList.remove("hidden");
+  window.scrollTo(0, 0);
+}
+
+function cancelForm() {
+  document.getElementById("form-screen").classList.add("hidden");
+  document.getElementById("app-screen").classList.remove("hidden");
+}
+
+async function saveItem() {
+  const name = document.getElementById("f-name").value.trim();
+  if (!name) { alert("品名を入力してください"); return; }
+
+  const now = new Date().toISOString();
+  const item = {
+    id: editingId || (Date.now().toString(36) + Math.random().toString(36).slice(2, 6)),
+    name,
+    category: document.getElementById("f-category").value,
+    maker: document.getElementById("f-maker").value.trim(),
+    model: document.getElementById("f-model").value.trim(),
+    price: document.getElementById("f-price").value || "",
+    quantity: document.getElementById("f-quantity").value || "",
+    unit: document.getElementById("f-unit").value,
+    condition: document.getElementById("f-condition").value,
+    location: document.getElementById("f-location").value.trim(),
+    note: document.getElementById("f-note").value.trim(),
+    photo: currentPhoto,
+    createdAt: editingId ? (items.find(i => i.id == editingId)?.createdAt || now) : now,
+    updatedAt: now
+  };
+
+  if (editingId) {
+    await apiUpdate(item);
+  } else {
+    await apiAdd(item);
+  }
+
+  cancelForm();
+  await fetchItems();
+}
+
+async function deleteItem(id) {
+  if (!confirm("この在庫を削除しますか？")) return;
+  await apiDelete(id);
+  await fetchItems();
+}
+
+// ═══════════════════════ RENDER ═══════════════════════
+function toggleFilters() {
+  const bar = document.getElementById("filters-bar");
+  const btn = document.getElementById("filter-toggle-btn");
+  const open = bar.classList.toggle("hidden");
+  btn.textContent = open ? "▼ フィルタ・並べ替え" : "▲ フィルタを閉じる";
+}
+
+function renderList() {
+  const search = document.getElementById("search-input").value.toLowerCase().trim();
+  const catF = document.getElementById("filter-cat").value;
+  const condF = document.getElementById("filter-cond").value;
+  const sortBy = document.getElementById("sort-by").value;
+
+  let list = items.filter(i => {
+    if (catF && i.category !== catF) return false;
+    if (condF && i.condition !== condF) return false;
+    if (search) {
+      const hay = [i.name, i.maker, i.model, i.location, i.note, i.category].filter(Boolean).join(" ").toLowerCase();
+      if (!hay.includes(search)) return false;
+    }
+    return true;
+  });
+
+  list.sort((a, b) => {
+    if (sortBy === "newest") return String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""));
+    if (sortBy === "name") return (a.name || "").localeCompare(b.name || "", "ja");
+    if (sortBy === "price_asc") return (Number(a.price) || 0) - (Number(b.price) || 0);
+    if (sortBy === "price_desc") return (Number(b.price) || 0) - (Number(a.price) || 0);
+    return 0;
+  });
+
+  document.getElementById("item-count").textContent = items.length;
+
+  const container = document.getElementById("card-list");
+  if (list.length === 0) {
+    const empty = items.length === 0;
+    container.innerHTML = `<div class="empty">
+      <div class="icon">${empty ? "📦" : "🔍"}</div>
+      <div style="font-size:15px;font-weight:700">${empty ? "在庫がまだ登録されていません" : "検索条件に一致する在庫がありません"}</div>
+      <div style="font-size:13px;margin-top:6px">${empty ? "「＋ 新規登録」から最初の在庫を追加しましょう" : "検索条件やフィルタを変更してみてください"}</div>
+    </div>`;
+    return;
+  }
+
+  container.innerHTML = list.map((item, idx) => {
+    const cc = COND_COLORS[item.condition] || "#777";
+    const price = item.price ? `単価: <b>¥${Number(item.price).toLocaleString()}</b>` : "";
+    const qty = item.quantity ? `数量: <b>${item.quantity} ${item.unit || ""}</b>` : "";
+    const loc = item.location ? `場所: <b>${item.location}</b>` : "";
+    const mdl = item.model ? `型番: <b>${item.model}</b>` : "";
+    const details = [mdl, price, qty, loc].filter(Boolean).join("");
+    const note = item.note ? `<div class="card-note">${escHtml(item.note)}</div>` : "";
+    const photo = item.photo ? `<img src="${item.photo}" alt="" onclick="openPhoto('${item.photo.substring(0,50)}', ${idx})">` : "";
+
+    return `<div class="card" style="animation-delay:${idx * 0.04}s">
+      ${photo}
+      <div class="card-body">
+        <div class="card-top">
+          <h3>${escHtml(item.name)}</h3>
+          <span class="badge" style="background:${cc}22;color:${cc}">${item.condition || "未設定"}</span>
+        </div>
+        <div class="badges">
+          <span class="badge" style="background:#5a7d6a22;color:#5a7d6a">${item.category || "未分類"}</span>
+          ${item.maker ? `<span class="badge" style="background:#6a5a7d22;color:#6a5a7d">${escHtml(item.maker)}</span>` : ""}
+        </div>
+        ${details ? `<div class="card-details">${details}</div>` : ""}
+        ${note}
+        <div class="card-actions">
+          <button class="btn-edit" onclick="editItem('${item.id}')">✏️ 編集</button>
+          <button class="btn-del" onclick="deleteItem('${item.id}')">🗑 削除</button>
+        </div>
+      </div>
+    </div>`;
+  }).join("") + `<div class="count-bar">${list.length === items.length ? `全 ${items.length} 件を表示` : `${items.length} 件中 ${list.length} 件を表示`}</div>`;
+}
+
+// Store photo data indexed for modal
+function openPhoto(prefix, idx) {
+  const search = document.getElementById("search-input").value.toLowerCase().trim();
+  const catF = document.getElementById("filter-cat").value;
+  const condF = document.getElementById("filter-cond").value;
+  let list = items.filter(i => {
+    if (catF && i.category !== catF) return false;
+    if (condF && i.condition !== condF) return false;
+    if (search) {
+      const hay = [i.name, i.maker, i.model, i.location, i.note, i.category].filter(Boolean).join(" ").toLowerCase();
+      if (!hay.includes(search)) return false;
+    }
+    return true;
+  });
+  if (list[idx]?.photo) {
+    document.getElementById("modal-img").src = list[idx].photo;
+    document.getElementById("photo-modal").classList.remove("hidden");
+  }
+}
+
+function editItem(id) {
+  const item = items.find(i => String(i.id) === String(id));
+  if (item) showForm(item);
+}
+
+function escHtml(s) {
+  if (!s) return "";
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+// ═══════════════════════ INIT ═══════════════════════
+initDropdowns();
+
+if (API_URL) {
+  document.getElementById("setup-screen").classList.add("hidden");
+  document.getElementById("app-screen").classList.remove("hidden");
+  fetchItems();
+} else {
+  document.getElementById("setup-screen").classList.remove("hidden");
+}
+</script>
+</body>
+</html>
