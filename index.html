@@ -319,7 +319,9 @@ const CONDITIONS = ["新品","良好","使用可","要確認","不良"];
 const UNITS = ["枚","本","巻","箱","缶","袋","㎡","m","個","セット"];
 const COND_COLORS = {"新品":"#2e7d32","良好":"#558b2f","使用可":"#f9a825","要確認":"#e65100","不良":"#c62828"};
 
-let API_URL = localStorage.getItem("inventory_api_url") || "";
+const _params = new URLSearchParams(location.search);
+let API_URL = _params.get("api") || localStorage.getItem("inventory_api_url") || "";
+if (API_URL) localStorage.setItem("inventory_api_url", API_URL);
 let items = [];
 let editingId = null;
 let currentPhoto = "";
